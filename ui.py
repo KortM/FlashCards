@@ -9,6 +9,7 @@ from flet import (
     FilePickerUploadFile,
     FilledButton,
     FloatingActionButton,
+    IconButton,
     ListView,
     Page,
     RadioGroup,
@@ -82,8 +83,8 @@ class AdminUI(UserControl):
                                     ]
                                 ),
                             ),
-                            FloatingActionButton(
-                                text="", icon=icons.DELETE, width=32, height=32
+                            IconButton(
+                                icon=icons.DELETE
                             ),
                         ],
                     )
