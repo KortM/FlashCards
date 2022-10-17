@@ -23,7 +23,12 @@ class Card(Base):
     definition = Column(String(1000))
     icon_path = Column(String(1000))
 
-    def __init__(self):
+    def __init__(self, term, definition, icon_path):
+        self.term = term
+        self.definition = definition
+        self.icon_path = icon_path
+    
+    def __repr__(self) -> str:
         return 'Term: {}, Definition: {}, Icon: {}'.format(self.term, self.definition, self.icon_path)
 
 class User(Base):
