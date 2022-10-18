@@ -1,2 +1,0 @@
-administrator s-terra
-cscons csp

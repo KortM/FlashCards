@@ -1,3 +1,4 @@
+
 import flet
 from flet import (
     ButtonStyle,
@@ -21,8 +22,12 @@ from flet import (
     border,
     colors,
     icons,
+    Image,
+    Icon,
+    border_radius,
+    Markdown
 )
-
+import random
 from db import Card, Session, User, User_session
 
 
@@ -57,7 +62,7 @@ class AdminUI(UserControl):
                     n_term = Card(
                         term=term.value,
                         definition=definition.value,
-                        icon_path=f"static\\{self.path[0].name}",
+                        icon_path=f"{self.path[0].name}",
                     )
                 else:
                     n_term = Card(
@@ -94,7 +99,9 @@ class AdminUI(UserControl):
 
         def change_user(e):
             self.page.controls.pop()
-            self.page.add(UserUI(self.page))
+            user_ui = UserUI(self.page)
+            self.page.add(user_ui)
+            user_ui.generate_quests()
             self.page.vertical_alignment = "center"
             self.page.horizontal_alignment = "center"
             self.page.update()
@@ -140,40 +147,84 @@ class UserUI(UserControl):
     def __init__(self, page: Page):
         super().__init__()
         self.page = page
-
-    def build(self):
-        quest_label = Text(
-            "Начальник департамента управления проектами", size=20, weight="bold"
+        self.quest_layout = Column()
+        self.next = TextButton(text="Дальше", visible=False, on_click=self.next_quest)
+        self.result_positive = Text("Правильно!", color=colors.GREEN, weight="bold", visible=False)
+        self.result_negative = Text("Неправильно!", color=colors.RED,weight='bold', visible=False)
+        self.quest_label = Text(
+            "", size=20, weight="bold"
         )
+        self.quest_image = Image(src='Excel.jpg', width=100, height=100, visible=False)
+        self.update()
+
+    def next_quest(self, e):
+        self.generate_quests()
+
+    def generate_quests(self,):
+        self.quest_layout.controls.clear()
+        self.result_negative.visible = False
+        self.result_positive.visible = False
+        self.next.visible = False
+        self.quest_image.visible = True
+        session = Session()
+        data = session.query(Card).all()
+        num_quest = random.randint(0, len(data)-1)
+        current_quest = data.pop(num_quest)
+        rand_quest = random.randint(0, len(data)-1)
+        current_variant = data.pop(rand_quest)
+        rand_quest2 = random.randint(0, len(data)-1)
+        current_variant2 = data.pop(rand_quest2)
+        self.quest_label.value = current_quest.term
+        if current_quest.icon_path:
+            print(current_quest.icon_path)
+            self.quest_image.src = f'{current_quest.icon_path}'
+            self.quest_image.visible = True
+            self.update()
+        self.update()
+        
+        print(current_quest.term)
 
         def change_button(e):
-            e.control.icon = icons.CHECK_CIRCLE
-            e.control.bgcolor = colors.GREEN
-            next.visible = True
+            #print(e.control.data)
+            print(current_quest.definition, e.control.data)
+            if current_quest.definition == e.control.data:
+                e.control.icon = icons.CHECK_CIRCLE
+                e.control.bgcolor = colors.GREEN
+                self.result_positive.visible = True
+                for i in self.quest_layout.controls:
+                    i.disabled = True
+            else:
+                e.control.icon = icons.WARNING
+                e.control.bgcolor = colors.RED
+                self.result_negative.visible = True
+                for i in self.quest_layout.controls:
+                    i.disabled = True
+
+            self.next.visible = True
             self.update()
 
-        quest = RadioGroup(
-            content=Column(
-                [
-                    FilledButton(
-                        text="Иванов Иван Иванович", data="test", on_click=change_button
-                    ),
-                    FilledButton(text="Иванов Иван Иванович", on_click=change_button),
-                    FilledButton(text="Иванов Иван Иванович", on_click=change_button),
-                ]
+        data = [current_quest, current_variant, current_variant2]
+        
+        numbers = [i for i in range(len(data))]
+        random.shuffle(numbers)
+        for i in range(len(data)):
+            self.quest_layout.controls.append(
+                FilledButton(text=data[numbers[i]].definition,data=data[numbers[i]]
+                .definition, on_click=change_button)
             )
-        )
-        next = TextButton(text="Дальше")
-        next.visible = False
-        result_positive = Text("Правильно!", color=colors.GREEN, weight="bold")
-        result_negative = Text("Ошибка!", color=colors.RED)
+        self.quest_layout.update()
+
+    def build(self):
+        quest = RadioGroup()
+        quest.content = self.quest_layout
 
         view = Column(
             horizontal_alignment="center",
             controls=[
-                Row(alignment="center", controls=[quest_label]),
+                Row(alignment='center', controls=[self.quest_image]),
+                Row(alignment="center", controls=[self.quest_label]),
                 Row(alignment="center", controls=[quest]),
-                Row(alignment="center", controls=[result_positive, next]),
+                Row(alignment="center", controls=[self.result_positive,self.result_negative, self.next]),
             ],
         )
         return view
@@ -214,9 +265,12 @@ def main(page: Page):
                 page.horizontal_alignment = "start"
                 page.update()
             else:
+                user_ui = UserUI(page)
                 page.controls.pop()
-                page.add(UserUI(page))
+                page.add(user_ui)
+                user_ui.generate_quests()
                 page.update()
+
         else:
             message.value = "Неверные имя пользователя/пароль!"
             page.update()
@@ -234,4 +288,4 @@ def main(page: Page):
     page.add(view)
 
 
-flet.app(target=main, upload_dir="assets")
+flet.app(target=main, upload_dir="assets", assets_dir='assets')
