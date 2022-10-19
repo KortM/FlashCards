@@ -1,4 +1,4 @@
-
+from ctypes import alignment
 import flet
 from flet import (
     ButtonStyle,
@@ -25,7 +25,7 @@ from flet import (
     Image,
     Icon,
     border_radius,
-    Markdown
+    GridView
 )
 import random
 from db import Card, Session, User, User_session
@@ -37,11 +37,11 @@ class AdminUI(UserControl):
         self.page = page
 
     def build(self):
-        print("admin_ui")
         term = TextField(label="Термин", multiline=True, max_lines=2)
         definition = TextField(label="Определение", multiline=True, max_lines=4)
         self.path = []
         self.page.window_width = 700
+        self.page.window_height = 300
 
         def upload(e):
             if image_path.result != None and image_path.result.files != None:
@@ -51,7 +51,6 @@ class AdminUI(UserControl):
                             f.name, self.page.get_upload_url(f.name, 600)
                         )
                     )
-                # image_path.upload(self.path)
 
         def new_term(e):
             if term.value and definition.value:
@@ -70,7 +69,6 @@ class AdminUI(UserControl):
                     )
 
                 session.add(n_term)
-                print(self.path, n_term)
                 session.commit()
                 self.path = []
                 questions.controls.append(
@@ -88,13 +86,11 @@ class AdminUI(UserControl):
                                     ]
                                 ),
                             ),
-                            IconButton(
-                                icon=icons.DELETE
-                            ),
+                            IconButton(icon=icons.DELETE, on_click=delete_card),
                         ],
                     )
                 )
-
+                update_cards()
                 self.update()
 
         def change_user(e):
@@ -114,7 +110,47 @@ class AdminUI(UserControl):
             on_click=new_term, icon=icons.ADD, height=42, width=64, bgcolor=colors.WHITE
         )
 
+        def delete_card(e):
+            session = Session()
+            tmp = session.query(Card).filter_by(id=e.control.data).first()
+            session.delete(tmp)
+            session.commit()
+            questions.controls.clear()
+            self.update()
+            update_cards()
+            self.update()
+            self.page.update()
+
         questions = ListView(expand=1, spacing=10, padding=20, auto_scroll=True)
+
+        def update_cards():
+            questions.controls.clear()
+            cards_session = Session()
+            cards = cards_session.query(Card).all()
+            for card in cards:
+                questions.controls.append(
+                    Row(
+                        alignment="spaceEvenly",
+                        width=300,
+                        scroll=True,
+                        spacing=10,
+                        controls=[
+                            Container(
+                                content=Row(
+                                    controls=[
+                                        Checkbox(label=card.term),
+                                        Text(card.definition),
+                                    ]
+                                ),
+                            ),
+                            IconButton(
+                                icon=icons.DELETE, data=card.id, on_click=delete_card
+                            ),
+                        ],
+                    )
+                )
+
+        update_cards()
         view = Row(
             height=250,
             controls=[
@@ -147,145 +183,190 @@ class UserUI(UserControl):
     def __init__(self, page: Page):
         super().__init__()
         self.page = page
-        self.quest_layout = Column()
-        self.next = TextButton(text="Дальше", visible=False, on_click=self.next_quest)
-        self.result_positive = Text("Правильно!", color=colors.GREEN, weight="bold", visible=False)
-        self.result_negative = Text("Неправильно!", color=colors.RED,weight='bold', visible=False)
-        self.quest_label = Text(
-            "", size=20, weight="bold"
+        self.page.window_height = 600
+        self.page.window_width = 600
+        self.quest_layout = GridView(
+            expand=1,
+            runs_count=1,
+            max_extent=300,
+            spacing=2,
+            run_spacing=2,
+            child_aspect_ratio=6,
         )
-        self.quest_image = Image(src='Excel.jpg', width=100, height=100, visible=False)
+        self.next = TextButton(text=" ", visible=True, on_click=self.next_quest, disabled=True)
+        self.result_positive = Text("", color=colors.GREEN, weight="bold", visible=True)
+        self.quest_label = Text("", size=20, weight="bold")
+        self.quest_image = Image(
+            src="Excel.jpg",
+            width=100,
+            height=100,
+            visible=False,
+            border_radius=border_radius.all(50),
+            fit="fill",
+        )
+        self.info = Text(
+            "Пройденых вопросов: {}, Правильных ответов: {}, Неправильных ответов: {}".format(
+                0, 0, 0
+            ),
+            color=colors.BLUE_600,
+            weight="bold",
+        )
+        self.count_valid = 0
+        self.count_invalid = 0
+        self.count_quest = 0
         self.update()
 
     def next_quest(self, e):
         self.generate_quests()
 
-    def generate_quests(self,):
+    def generate_quests(
+        self,
+    ):
         self.quest_layout.controls.clear()
-        self.result_negative.visible = False
-        self.result_positive.visible = False
-        self.next.visible = False
+        self.count_quest += 1
+        self.result_positive.value = ""
+        self.next.text = ' '
+        self.next.disabled = True
         self.quest_image.visible = True
         session = Session()
         data = session.query(Card).all()
-        num_quest = random.randint(0, len(data)-1)
-        current_quest = data.pop(num_quest)
-        rand_quest = random.randint(0, len(data)-1)
-        current_variant = data.pop(rand_quest)
-        rand_quest2 = random.randint(0, len(data)-1)
-        current_variant2 = data.pop(rand_quest2)
-        self.quest_label.value = current_quest.term
-        if current_quest.icon_path:
-            print(current_quest.icon_path)
-            self.quest_image.src = f'{current_quest.icon_path}'
+        rand_values = [data.pop(random.randint(0, len(data) - 1)) for i in range(5)]
+        self.quest_label.value = rand_values[0].term
+        current_quest = rand_values[0]
+        if rand_values[0].icon_path:
+            self.quest_image.src = f"{rand_values[0].icon_path}"
             self.quest_image.visible = True
             self.update()
         self.update()
-        
-        print(current_quest.term)
 
         def change_button(e):
-            #print(e.control.data)
-            print(current_quest.definition, e.control.data)
             if current_quest.definition == e.control.data:
                 e.control.icon = icons.CHECK_CIRCLE
                 e.control.bgcolor = colors.GREEN
-                self.result_positive.visible = True
+                self.result_positive.value = "Правильно!"
                 for i in self.quest_layout.controls:
                     i.disabled = True
+                self.count_valid += 1
+                self.next.text = 'Дальше'
+                self.update()
             else:
                 e.control.icon = icons.WARNING
                 e.control.bgcolor = colors.RED
-                self.result_negative.visible = True
+                self.result_positive.value = "Неправильно!"
+                self.count_invalid += 1
                 for i in self.quest_layout.controls:
                     i.disabled = True
+                self.next.text = 'Дальше'
+                self.update()
 
+            self.info.value = f"Пройденых вопросов: {self.count_quest}, Правильных ответов: {self.count_valid}, Неправильных ответов: {self.count_invalid}"
             self.next.visible = True
+            self.next.disabled = False
             self.update()
 
-        data = [current_quest, current_variant, current_variant2]
-        
-        numbers = [i for i in range(len(data))]
-        random.shuffle(numbers)
-        for i in range(len(data)):
+        random.shuffle(rand_values)
+        for i in range(len(rand_values)):
             self.quest_layout.controls.append(
-                FilledButton(text=data[numbers[i]].definition,data=data[numbers[i]]
-                .definition, on_click=change_button)
+                FilledButton(
+                    text=rand_values[i].definition,
+                    data=rand_values[i].definition,
+                    on_click=change_button,
+                )
             )
         self.quest_layout.update()
 
     def build(self):
-        quest = RadioGroup()
-        quest.content = self.quest_layout
+
+        def follow_admin(e):
+            admin_ui = Auth(self.page)
+            self.page.controls.clear()
+            self.page.add(admin_ui)
+            self.page.update()
+
+        btn_admin = TextButton(
+            "В админ панель",
+            icon=icons.SWITCH_ACCESS_SHORTCUT_SHARP,
+            on_click=follow_admin,
+        )
 
         view = Column(
-            horizontal_alignment="center",
+            alignment="center",
             controls=[
-                Row(alignment='center', controls=[self.quest_image]),
+                Row(alignment="center", controls=[self.info]),
+                Row(alignment="center", controls=[self.quest_image]),
                 Row(alignment="center", controls=[self.quest_label]),
-                Row(alignment="center", controls=[quest]),
-                Row(alignment="center", controls=[self.result_positive,self.result_negative, self.next]),
+                Row(alignment="center", controls=[self.quest_layout]),
+                Row(alignment="center", controls=[self.result_positive, self.next]),
+                Row(vertical_alignment="end", controls=[btn_admin]),
             ],
         )
         return view
 
 
+class Auth(UserControl):
+    def __init__(self, page: Page):
+        super().__init__()
+        self.page = page
+
+    def build(self):
+        login_view = TextField(label="Имя пользователя", width=300, border="outline")
+        passwd_view = TextField(
+            label="Пароль", width=300, password=True, border="outline"
+        )
+        login_btn = FilledButton(
+            text="Войти",
+            width=300,
+            icon=icons.LOGIN,
+            style=ButtonStyle(color="blue"),
+            height=60,
+        )
+        message = Text(color=colors.RED)
+
+        view = Column(
+            controls=[
+                Row(alignment="center", controls=[login_view]),
+                Row(alignment="center", controls=[passwd_view]),
+                Row(alignment="center", controls=[login_btn]),
+                Row(alignment="center", controls=[message]),
+            ]
+        )
+
+        def auth(e):
+            session = User_session()
+            login = login_view.value
+            passwd = passwd_view.value
+            local_user = session.query(User).filter_by(name=login.lower()).first()
+            if local_user and local_user.check_password(passwd):
+                if local_user.role:
+                    self.page.controls.pop()
+                    self.page.add(AdminUI(self.page))
+                    self.page.vertical_alignment = "start"
+                    self.page.horizontal_alignment = "start"
+                    self.page.update()
+                else:
+                    user_ui = UserUI(self.page)
+                    self.page.controls.pop()
+                    self.page.add(user_ui)
+                    user_ui.generate_quests()
+                    self.page.update()
+
+            else:
+                message.value = "Неверные имя пользователя/пароль!"
+                self.page.update()
+
+        login_btn.on_click = auth
+        return view
+
+
 def main(page: Page):
     page.title = "FlashCard"
-    login_view = TextField(label="Имя пользователя", width=300, border="outline")
-    passwd_view = TextField(label="Пароль", width=300, password=True, border="outline")
-    login_btn = FilledButton(
-        text="Войти",
-        width=300,
-        icon=icons.LOGIN,
-        style=ButtonStyle(color="blue"),
-        height=60,
-    )
-    message = Text(color=colors.RED)
-
-    view = Column(
-        controls=[
-            Row(alignment="center", controls=[login_view]),
-            Row(alignment="center", controls=[passwd_view]),
-            Row(alignment="center", controls=[login_btn]),
-            Row(alignment="center", controls=[message]),
-        ]
-    )
-
-    def auth(e):
-        session = User_session()
-        login = login_view.value
-        passwd = passwd_view.value
-        local_user = session.query(User).filter_by(name=login.lower()).first()
-        if local_user and local_user.check_password(passwd):
-            if local_user.role:
-                page.controls.pop()
-                page.add(AdminUI(page))
-                page.vertical_alignment = "start"
-                page.horizontal_alignment = "start"
-                page.update()
-            else:
-                user_ui = UserUI(page)
-                page.controls.pop()
-                page.add(user_ui)
-                user_ui.generate_quests()
-                page.update()
-
-        else:
-            message.value = "Неверные имя пользователя/пароль!"
-            page.update()
-
-    # page.on_route_change = route_change
-
-    login_btn.on_click = auth
-
-    # page.window_resizable =False
     page.window_width = 350
     page.window_height = 350
     page.window_maximized = False
     page.horizontal_alignment = "center"
     page.vertical_alignment = "center"
-    page.add(view)
+    auth = Auth(page)
+    page.add(auth)
 
 
-flet.app(target=main, upload_dir="assets", assets_dir='assets')
+flet.app(target=main, upload_dir="assets", assets_dir="assets")
