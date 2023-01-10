@@ -1,4 +1,4 @@
-from ctypes import alignment
+
 import flet
 from flet import (
     ButtonStyle,
@@ -185,14 +185,7 @@ class UserUI(UserControl):
         self.page = page
         self.page.window_height = 600
         self.page.window_width = 600
-        self.quest_layout = GridView(
-            expand=1,
-            runs_count=1,
-            max_extent=300,
-            spacing=2,
-            run_spacing=2,
-            child_aspect_ratio=6,
-        )
+        self.quest_layout = Column()
         self.next = TextButton(text=" ", visible=True, on_click=self.next_quest, disabled=True)
         self.result_positive = Text("", color=colors.GREEN, weight="bold", visible=True)
         self.quest_label = Text("", size=20, weight="bold")
@@ -324,6 +317,7 @@ class Auth(UserControl):
 
         view = Column(
             controls=[
+                Row(alignment="center", controls=[Text('Авторизация', weight='bold',size=25, color='blue900')]),
                 Row(alignment="center", controls=[login_view]),
                 Row(alignment="center", controls=[passwd_view]),
                 Row(alignment="center", controls=[login_btn]),
